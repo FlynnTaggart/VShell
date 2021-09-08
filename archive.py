@@ -1,6 +1,7 @@
 import io
 import os
 import shutil
+import sys
 import zipfile
 from termcolor import colored
 from datetime import datetime
@@ -13,7 +14,11 @@ class Archive:
 
     def __init__(self, input_path: str, user_os: str):
         self.user_os = user_os
-        zip_file = zipfile.ZipFile(input_path)
+        try:
+            zip_file = zipfile.ZipFile(input_path)
+        except Exception:
+            print(colored('\nNo such file or directory', 'red'))
+            sys.exit(0)
         vshell_root_dir = os.getcwd()
         if user_os == 'Windows':
             self.vshell_root_dir = vshell_root_dir.replace('\\', '/')

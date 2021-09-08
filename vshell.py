@@ -23,7 +23,11 @@ def exit(signal, frame):
 
 user_os = platform.system()
 
-input_path = sys.argv[1]
+try:
+    input_path = sys.argv[1]
+except Exception:
+    print(colored('\nNo such file or directory', 'red'))
+    sys.exit(0)
 
 archive = archive.Archive(input_path, user_os)
 
