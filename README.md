@@ -1,5 +1,5 @@
 # VShell
-A simple bash emulator which takes a zip or tar file as an working directory
+A simple bash emulator which takes a zip file as an working directory
 
 # Setup
 1. Install requirements:
@@ -9,6 +9,8 @@ A simple bash emulator which takes a zip or tar file as an working directory
 2. Run VShell:
 
 `python vshell.py <filename>`
+
+\<filename\> - name of the zip file
 
 # Available commands
 
