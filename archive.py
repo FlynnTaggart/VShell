@@ -19,9 +19,9 @@ class Archive:
         except Exception:
             print(colored('\nNo such file or directory', 'red'))
             sys.exit(0)
-        vshell_root_dir = os.getcwd()
+        self.vshell_root_dir = os.getcwd()
         if user_os == 'Windows':
-            self.vshell_root_dir = vshell_root_dir.replace('\\', '/')
+            self.vshell_root_dir = self.vshell_root_dir.replace('\\', '/')
 
         try:
             os.mkdir('temporary_files')
