@@ -1,0 +1,9 @@
+Welcome to VShell!
+
+List of aviable commands:
+
+pwd - print name of current directory
+ls [-l] - list directory contents
+cd [directory] - change VSHell working directory
+cat [file] - print file contents
+exit - exit the VShell
