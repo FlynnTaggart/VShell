@@ -1,10 +1,8 @@
 import io
 import os
-import shutil
 import sys
 import zipfile
 from termcolor import colored
-from datetime import datetime
 
 
 class Archive:
@@ -13,9 +11,11 @@ class Archive:
     catting_flag = False
 
     def __init__(self, input_path: str, user_os: str):
+        self.input_path = input_path
         self.user_os = user_os
         try:
-            zip_file = zipfile.ZipFile(input_path)
+            self.archive = zipfile.ZipFile(input_path)
+            self.path = zipfile.Path(self.archive, at='')
         except Exception:
             print(colored('\nNo such file or directory', 'red'))
             sys.exit(0)
@@ -23,28 +23,12 @@ class Archive:
         if user_os == 'Windows':
             self.vshell_root_dir = self.vshell_root_dir.replace('\\', '/')
 
-        try:
-            os.mkdir('temporary_files')
-        except FileExistsError:
-            shutil.rmtree('temporary_files')
-            os.mkdir('temporary_files')
-        os.chdir('temporary_files')
-
-        zip_file.extractall()
-
     def pwd(self):
-        current_dir = os.getcwd()
-        if self.user_os == 'Windows':
-            current_dir = current_dir.replace('\\', '/')
-        print(current_dir[len(self.vshell_root_dir + '/temporary_files'):] + '/')
+        print('/' + '/'.join(str(self.path).split('/')[2:]))
         return
 
     def pwd_str(self):
-        current_dir = os.getcwd()
-        if self.user_os == 'Windows':
-            current_dir = current_dir.replace('\\', '/')
-        str = current_dir[len(self.vshell_root_dir + '/temporary_files'):] + '/'
-        return str
+        return '/' + '/'.join(str(self.path).split('/')[2:])
 
     def cd(self, input_list: list):
         if len(input_list) == 1:
@@ -52,26 +36,32 @@ class Archive:
         elif len(input_list) > 2:
             print('ls: too many arguments')
             return
-        cur_dir = self.pwd_str()
+        cur_path = self.path
         change_dir_list = input_list[1].split('/')
         for i in range(len(change_dir_list)):
             if change_dir_list[i] == '' and i == 0:
-                os.chdir(self.vshell_root_dir + '/temporary_files')
+                self.path = zipfile.Path(self.archive, at='')
                 continue
             elif change_dir_list[i] == '':
                 continue
             elif change_dir_list[i] == '..' and self.pwd_str() == '/':
                 continue
-            try:
-                os.chdir(change_dir_list[i])
-            except NotADirectoryError:
-                print('cd: ' + input_list[1] + ': Not a directory')
-                self.cd(['', cur_dir])
-                break
-            except OSError:
+            elif change_dir_list[i] == '.':
+                continue
+            elif change_dir_list[i] == '..':
+                self.path = zipfile.Path(self.archive, at='/'.join(self.pwd_str()[1:-1].split('/')[:-1]))
+                continue
+            if not (change_dir_list[i] in self.ls_str([''])):
                 print('cd: ' + input_list[1] + ': No such file or directory')
-                self.cd(['', cur_dir])
+                self.path = cur_path
                 break
+            self.path = self.path / change_dir_list[i]
+            if not self.path.is_dir():
+                print('cd: ' + input_list[1] + ': Not a directory')
+                self.path = cur_path
+                break
+        if str(self.path)[len(str(self.path)) - 1] != '/':
+            self.path = zipfile.Path(self.archive, at=self.pwd_str()[1:] + '/')
         return
 
     def cat(self, input_list: list):
@@ -85,54 +75,108 @@ class Archive:
                         print(input())
                     except Exception:
                         pass
-        elif len(input_list) == 2:
-            try:
-                cur_dir = self.pwd_str()
-                file_dir_list = input_list[1].split('/')
-                if len(file_dir_list) > 1:
-                    for i in range(len(file_dir_list) - 1):
-                        if file_dir_list[i] == '' and i == 0:
-                            os.chdir(self.vshell_root_dir + '/temporary_files')
-                            continue
-                        elif file_dir_list[i] == '':
-                            continue
-                        elif file_dir_list[i] == '..' and self.pwd_str() == '/':
-                            continue
-                file_name = file_dir_list[len(file_dir_list) - 1]
-                if file_name[0] == '\'':
-                    file_name = file_name[1:-1]
-                file = io.open(file_name, 'r', encoding='utf-8')
-                self.cd(['', cur_dir])
-                for line in file.readlines():
-                    print(line, end='')
-                file.close()
-            except OSError:
-                print('cd: ' + input_list[1] + ': No such file')
+            return
+        elif len(input_list) > 2:
+            print('cat: too many arguments')
+            return
+        cur_path = self.path
+        file_dir_list = input_list[1].split('/')
+        if len(file_dir_list) > 1:
+            for i in range(len(file_dir_list) - 1):
+                if file_dir_list[i] == '' and i == 0:
+                    self.path = zipfile.Path(self.archive, at='')
+                    continue
+                elif file_dir_list[i] == '':
+                    continue
+                elif file_dir_list[i] == '..' and self.pwd_str() == '/':
+                    continue
+                elif file_dir_list[i] == '.':
+                    continue
+                elif file_dir_list[i] == '..':
+                    self.path = zipfile.Path(self.archive, at='/'.join(self.pwd_str()[1:-1].split('/')[:-1]))
+                    continue
+                if not (file_dir_list[i] in self.ls_str([''])):
+                    print('cat: ' + input_list[1] + ': No such file')
+                    self.path = cur_path
+                    return
+                self.path = self.path / file_dir_list[i]
+                if not self.path.is_dir():
+                    print('cat: ' + input_list[1] + ': No such file')
+                    self.path = cur_path
+                    return
+        file_name = file_dir_list[len(file_dir_list) - 1]
+        if file_name[0] == '\'':
+            file_name = file_name[1:-1]
+        self.path = self.path / file_name
+        if (not self.path.exists()) or (self.path.is_dir()):
+            print('cat: ' + input_list[1] + ': No such file')
+            self.path = cur_path
+            return
+        try:
+            self.archive = zipfile.ZipFile(self.input_path)
+            with self.archive as archive:
+                with archive.open(self.pwd_str()[1:]) as file:
+                    print(file.read().decode())
+        except UnicodeDecodeError:
+            self.archive = zipfile.ZipFile(self.input_path)
+            with self.archive as archive:
+                with archive.open(self.pwd_str()[1:]) as file:
+                    for line in file.readlines():
+                        print(line, end='')
+                    print()
+        except Exception:
+            print('cat: ' + input_list[1] + ': No such file')
+            self.path = cur_path
+            return
+        self.path = cur_path
         return
+
+    def ls_str(self, input_list: str):
+        ls_res = ""
+        if len(input_list) == 1:
+            for filename in self.archive.namelist():
+                temp_name = filename.split('/')
+                path_length = len(self.pwd_str()[1:-1].split('/'))
+                if len(self.pwd_str()[1:-1]) == 0:
+                    path_length -= 1
+                if temp_name[len(temp_name) - 1] == '':
+                    if filename.startswith(self.pwd_str()[1:-1]) and len(temp_name) == path_length + 2:
+                        ls_res += temp_name[len(temp_name) - 2] + '\n'
+                else:
+                    if filename.startswith(self.pwd_str()[1:-1]) and len(temp_name) == path_length + 1:
+                        ls_res += temp_name[len(temp_name) - 1] + '\n'
+        return ls_res
 
     def ls(self, input_list: str):
         if len(input_list) == 1:
-            for cur_dir in os.scandir():
-                cur_dir_name = cur_dir.name
-                if ' ' in cur_dir_name:
-                    cur_dir_name = '\'{0}\''.format(cur_dir_name)
-                if cur_dir.is_dir():
-                    print(colored(cur_dir_name, 'blue'))
+            for filename in self.archive.namelist():
+                temp_name = filename.split('/')
+                path_length = len(self.pwd_str()[1:-1].split('/'))
+                if len(self.pwd_str()[1:-1]) == 0:
+                    path_length -= 1
+                if temp_name[len(temp_name) - 1] == '':
+                    if filename.startswith(self.pwd_str()[1:-1]) and len(temp_name) == path_length + 2:
+                        print(colored(temp_name[len(temp_name) - 2], 'blue'))
                 else:
-                    print(cur_dir_name)
+                    if filename.startswith(self.pwd_str()[1:-1]) and len(temp_name) == path_length + 1:
+                        print(temp_name[len(temp_name) - 1])
         elif len(input_list) == 2:
             if input_list[1] == '-l':
-                for cur_dir in os.scandir():
-                    seconds_date = cur_dir.stat().st_mtime
-                    date = datetime.fromtimestamp(seconds_date, tz=None)
-                    cur_dir_name = cur_dir.name
-                    if ' ' in cur_dir_name:
-                        cur_dir_name = '\'{0}\''.format(cur_dir_name)
-                    if cur_dir.is_dir():
-                        print('           ' + date.strftime('%Y %b %d %H:%M') + ' ' + colored(cur_dir_name, 'blue'))
+                namelist = self.archive.namelist()
+                infolist = self.archive.infolist()
+                for i in range(len(namelist)):
+                    temp_name = namelist[i].split('/')
+                    path_length = len(self.pwd_str()[1:-1].split('/'))
+                    if len(self.pwd_str()[1:-1]) == 0:
+                        path_length -= 1
+                    if temp_name[len(temp_name) - 1] == '':
+                        if namelist[i].startswith(self.pwd_str()[1:-1]) and len(temp_name) == path_length + 2:
+                            print('           ' + self.make_date_string(infolist[i].date_time) + ' ' + colored(
+                                temp_name[len(temp_name) - 2], 'blue'))
                     else:
-                        print('{:<10}'.format(cur_dir.stat().st_size) + ' ' + date.strftime(
-                            '%Y %b %d %H:%M') + ' ' + cur_dir_name)
+                        if namelist[i].startswith(self.pwd_str()[1:-1]) and len(temp_name) == path_length + 1:
+                            print('{:<10}'.format(infolist[i].file_size) + ' ' + self.make_date_string(
+                                infolist[i].date_time) + ' ' + temp_name[len(temp_name) - 1])
             else:
                 print('ls: invalid option -- \'' + input_list[1] + '\'')
         else:
@@ -171,3 +215,14 @@ class Archive:
             else:
                 temp_str += input_string[i]
         return splitted
+
+    @staticmethod
+    def make_date_string(date_tuple):
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        date_string = ('{:04d}'.format(date_tuple[0]) + ' '
+                       + months[int('{:02d}'.format(date_tuple[1])) - 1] + ' '
+                       + '{:02d}'.format(date_tuple[2]) + ' '
+                       + '{:02d}'.format(date_tuple[3]) + ':'
+                       + '{:02d}'.format(date_tuple[4]) + ':'
+                       + '{:02d}'.format(date_tuple[5]))
+        return date_string

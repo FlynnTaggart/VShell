@@ -1,8 +1,6 @@
 import archive
 import sys
 import signal
-import os
-import shutil
 import platform
 from termcolor import colored
 
@@ -12,11 +10,6 @@ def exit(signal, frame):
     if archive.catting_flag:
         archive.catting_flag = False
     else:
-        os.chdir(archive.vshell_root_dir)
-        try:
-            shutil.rmtree('temporary_files')
-        except Exception:
-            pass
         print(colored('\nExiting VShell...', 'green'))
         sys.exit(0)
 
