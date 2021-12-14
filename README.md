@@ -4,7 +4,7 @@ A simple bash emulator which takes a zip file as an working directory
 # Setup
 1. Install requirements:
 
-`pip install requirements.txt`
+`pip install -r requirements.txt`
 
 2. Run VShell:
 
